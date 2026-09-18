@@ -3,6 +3,7 @@
 ## Bend Setup (Windows)
 
 Bend is installed at `~/.bend/`. The `bend` command is at `~/.bend/bin/bend.cmd`.
+Bend version: 2.0.5. Runtime: Bun 1.4.2.
 
 ### Commands
 
@@ -19,13 +20,6 @@ Bend is installed at `~/.bend/`. The `bend` command is at `~/.bend/bin/bend.cmd`
 - Run `bend PROOF.bend` before committing
 - Parallelize the code whenever possible
 
-### Notes
-
-- Bend compiles to C (needs clang 19+), Metal (macOS), CUDA (Linux), or JavaScript
-- For quick iteration, use the JS target: `bend file.bend -o out.js`
-- Windows support is limited; use WSL for full feature support
-- Requires Bun (installed automatically) and Git
-
 ### Setup on Windows
 
 1. Install Bun: `npm install -g bun --allow-scripts=bun`
@@ -33,3 +27,10 @@ Bend is installed at `~/.bend/`. The `bend` command is at `~/.bend/bin/bend.cmd`
 3. Create junction: `mklink /J ~/.bend/current ~/.bend/app/clone`
 4. Add `~/.bend/bin` to PATH
 5. Fix Windows path bug in bend.ts (line 1022: use path.dirname instead of lastIndexOf)
+
+### Known Issues
+
+- Path bug fix is local only - `git pull` in ~/.bend/app/clone will overwrite it
+- Native GUI (App.run) does NOT work on Windows - only macOS (Metal) and Linux (X11)
+- C compilation needs clang 19+ and POSIX headers (pthread) - MinGW gcc won't work
+- See PROGRESS.md for full details on errors, syntax gotchas, and recommendations
