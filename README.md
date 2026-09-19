@@ -34,7 +34,7 @@ run_gui.bat
 **Manual build and run:**
 ```bash
 # Copy the source to WSL
-cp /mnt/c/Users/simon/Desktop/bend-test/gui_app.bend ~/gui_app.bend
+cp /mnt/c/Users/.../Desktop/bend-gui-experiment/gui_app.bend ~/gui_app.bend
 
 # Set display environment
 export DISPLAY=:0
