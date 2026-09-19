@@ -1,115 +1,89 @@
-# Bend on Windows - Progress Report
+# Bend GUI Text Input — Progress Log
+
+## Goal
+Build a Bend GUI text input application with a readable Minecraft-style pixel font, displayed via WSLg on Windows.
+
+## Setup
+- **Windows Bend**: `C:\Users\simon\.bend\bin\bend.cmd` (v2.0.5, Bun 1.4.2)
+- **WSL Bend**: `~/.bend/bin/bend` wrapper → `~/.bun/bin/bun` (native WSL bun)
+- **WSL packages**: `clang` (v18), `build-essential`, `libasound2-dev`, `libx11-dev`
+- **WSLg**: `/mnt/wslg/runtime-dir/wayland-0` socket
+
+## Key Bend Constraints Learned
+- No hex literals, no matching on computed values, `let` can't precede `match`
+- Functions must be defined before use
+- `+` prefix for Data/reusable arguments
+- `List<&2, U32>` for reusable lists
+- **Key events**: pattern `Key{code, down}` (not `Key{code, True{}}`)
+- **Can't assign Nat literals** like `+x = 28n` — must inline: `Nat.mul(line, 28n)`
+- `Gui.flat` disabled (`False{}`) to prevent text garbling (slower but correct)
+
+## Font Evolution
+| Version | Font | Scale | Char Cell | Chars/Line | Status |
+|---------|------|-------|-----------|------------|--------|
+| v1 | 3×5 | 2× | 4×6 | 21 | Garbled |
+| v2 | 3×5 | 3× | 4×8 | 15 | Garbled |
+| v3 | 3×5 | 4× | 4×10 | 12 | Garbled |
+| v4 | 3×5 | 6× | 4×14 | 9 | Readable but tiny |
+| v5 | 5×6 | 6× | 6×14 | 14 | Readable |
+| **v6 (current)** | **7×9** | **3×** | **8×12** | **21** | **Working!** |
 
 ## What Works
+- ✅ WSL2 + WSLg + native bun + clang toolchain
+- ✅ C backend patches: resizable window (`window_open.c`, `window_frame.c`)
+- ✅ Bend compiles without errors (both interpreter and native binary)
+- ✅ Window opens via WSLg: "Bend - Text Input" 512×256
+- ✅ Key input: characters appear immediately on keypress
+- ✅ Text direction: correct reading order (fixed via `List.len` + reverse indexing)
+- ✅ Multi-line wrapping: 21 chars/line at 3× scale
+- ✅ Backspace handling (codes 8, 127, 65288) — fixed to delete last char
+- ✅ Enter clears input
+- ✅ Escape/Close quits app
+- ✅ 7×9 Minecraft font: 63 bits/glyph stored as two U32 (lo: bits 0-31, hi: bits 32-62)
+- ✅ `Font.get_lo` / `Font.get_hi` lookup tables (77 chars: A-Z, a-z, 0-9, punctuation)
+- ✅ `Font.pixel` extracts bits correctly from both halves
+- ✅ Native binary runs via WSLg (`~/gui_app`)
+- ✅ Windows launcher: `run_gui.bat`
 
-- **Bend type-checks and runs on Windows** via the Bun/JS backend
-- `bend hello.bend` prints "Hello, world!" successfully
-- `bend file.bend -o file.js` compiles to JavaScript
-- `bend file.bend -o file.c` emits C source (but can't compile natively - needs pthreads/X11)
+## Files
+- `C:\Users\simon\Desktop\bend-test\gui_app.bend` — main app (~280 lines)
+- `C:\Users\simon\Desktop\bend-test\run_gui.bat` — Windows launcher
+- `C:\Users\simon\Desktop\bend-test\gen_font.js` — 5×6 font generator (Node.js)
+- `C:\Users\simon\Desktop\bend-test\gen_font7x9.js` — 7×9 Minecraft font generator (Node.js)
+- `~/.bend/bin/bend` (WSL) — wrapper using `~/.bun/bin/bun`
+- `~/.bend/clone/bend2/effs/window_open.c` — patched: `SDL_WINDOW_RESIZABLE`
+- `~/.bend/clone/bend2/effs/window_frame.c` — patched: `SDL_WINDOWEVENT_RESIZED` handler
 
-## Setup Steps (verified working)
+## Commands
+```bash
+# Windows: compile
+& "$env:USERPROFILE\.bend\bin\bend.cmd" gui_app.bend
 
-1. `npm install -g bun --allow-scripts=bun` (installs Bun 1.4.2)
-2. `git clone https://github.com/bendlang/bend.git ~/.bend/app/clone`
-3. `mklink /J ~/.bend\current ~/.bend\app\clone` (junction, not symlink - no admin needed)
-4. Create `~/.bend/bin/bend.cmd`:
-   ```
-   @echo off
-   bun "%USERPROFILE%\.bend\current\bend2\main.ts" %*
-   ```
-5. Add `~/.bend/bin` to user PATH
+# WSL: copy file
+cp /mnt/c/Users/simon/Desktop/bend-test/gui_app.bend ~/gui_app.bend
 
-## Bug Fixed: Windows Path Separator
+# WSL: build native binary
+export DISPLAY=:0; export WAYLAND_DISPLAY=wayland-0; export XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir
+~/.bend/bin/bend ~/gui_app.bend -o ~/gui_app
 
-**File:** `~/.bend/current/bend2/bend.ts`, line 1022
+# WSL: run (window appears on Windows desktop)
+~/gui_app
 
-**Original code (broken on Windows):**
-```js
-const dir = file.slice(0, file.lastIndexOf("/") + 1);
+# Windows: launch via WSLg
+run_gui.bat
 ```
 
-**Problem:** On Windows, `fs.realpathSync()` returns paths with backslashes
-(e.g. `C:\Users\simon\.bend\app\clone\bend2\base.bend`). `lastIndexOf("/")`
-returns -1, so `dir` becomes an empty string. This breaks foreign imports in
-`base.bend` (like `import "./effs/print.c"`) because they resolve relative to
-CWD instead of base.bend's directory. Error: `ENOENT: no such file or
-directory, lstat '<CWD>\effs'`.
+## Troubleshooting
+- **"no display"**: Close fullscreen games, or `wsl --shutdown` then reopen Ubuntu
+- **WSLg socket**: Check `/mnt/wslg/runtime-dir/wayland-0` exists
+- **Env vars needed**: `DISPLAY=:0`, `WAYLAND_DISPLAY=wayland-0`, `XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir`
 
-**Fixed code:**
-```js
-const dir = path.dirname(file).replace(/\\/g, "/") + "/";
-```
+## Next Steps (Optional Polish)
+- [ ] Cursor blink / position indicator
+- [ ] Text selection / clipboard
+- [ ] Scrollback for multi-line history
+- [ ] Increase window size for more lines
+- [ ] Color themes
 
-**Note:** This fix lives in the cloned repo at `~/.bend/app/clone/bend.ts`. It
-will be overwritten if you `git pull`. The upstream repo does not support
-Windows natively.
-
-## What Doesn't Work
-
-### Native Window/GUI
-
-Bend's window system (`App.run`, `Window.open`) only has backends for:
-- **macOS:** Metal + AppKit (`#ifdef __OBJC__` in `window_open.c`)
-- **Linux:** X11 (`#elif defined(__linux__)` in `window_open.c`)
-- **Windows/other:** Falls through to `ENOTSUP` error
-
-The JS backend also doesn't support windows (`window_open.js` throws
-"no display" immediately).
-
-**Bottom line:** No native GUI on Windows. The `gui_hello.bend` file compiles
-and type-checks but can't open a window.
-
-### C Compilation
-
-`bend file.bend -o file.c` emits C, but compiling on Windows fails:
-- MinGW gcc lacks `pthread.h`
-- No X11 headers for the window system
-- Would need clang 19+ and WSL or cross-compilation
-
-### Bend's Known Limitations (from README)
-
-- "No Windows (WSL works)"
-- Recursion must be terminating (use `@unsafe` to disable)
-- Values are affine: closures/arrays can't be shared freely
-- No type classes, traits, or macros
-- Strings are linked lists (slow text processing)
-
-## Bend Syntax Gotchas (affine types)
-
-Bend is affine by default - variables can only be used once. Common errors:
-
-| Error | Fix |
-|-------|-----|
-| `offset (consumed more than once)` | Add `+` prefix: `+offset: U32` |
-| `a match cannot scrutinize a computed value` | Extract to a separate `def` |
-| `cannot infer` on lambdas | Use `Maybe.bind` pattern or separate def |
-
-Pattern for chaining Maybe operations (from demos):
-```bend
-def events(events: List<Event>, +offset: U32) -> Maybe<U32>:
-  match events:
-    case []:
-      Some{offset}
-    case e <> rest:
-      Maybe.bind(&1, U32, U32, event(e, offset), m => events(rest, m))
-```
-
-## Files in This Project
-
-- `AGENTS.md` - Agent instructions for using Bend
-- `PROGRESS.md` - This file
-- `hello.bend` - Working "Hello, world!" program
-- `gui_hello.bend` - GUI source (compiles, no Windows window support)
-- `gui_hello.html` - Standalone HTML canvas demo (not Bend-related)
-
-## Recommendations for Future Work
-
-1. **WSL approach:** Install WSL2, then follow Linux setup. Bend GUI works
-   with X11. This is the officially supported path.
-2. **Upstream fix:** The path bug fix should go upstream to bendlang/bend.
-3. **C compilation:** If clang 19+ is installed (e.g. via LLVM releases),
-   native compilation might work for non-GUI programs, but still needs
-   pthreads (available in MinGW-w64 or clang targetting POSIX).
-4. **HTML bridge:** The JS output (`bend file.bend -o file.js`) could
-   theoretically be adapted for browser use by replacing Node.js builtins
-   with browser equivalents, but this would be non-trivial.
+## Changelog
+- **2026-09-19**: Fixed backspace handling — added explicit `Key{8, True{}}`, `Key{127, True{}}`, `Key{65288, True{}}` cases in `Gui.on_event` to call `Gui.on_backspace`. Removed dead code (`Gui.on_key_go`, `Gui.on_key`, `Gui.on_char*`, `Gui.on_backspace_go`). Cleaned up test files (HTML, C, old Bend scripts, binaries). Rebuilt native binary. Verified: typing, backspace, Enter, Escape, multi-line wrapping all work.
