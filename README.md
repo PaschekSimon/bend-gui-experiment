@@ -2,6 +2,8 @@
 
 A text input application built with [Bend](https://github.com/HigherOrderCO/Bend) — a massively parallel, functional language — running on Windows via WSL2 and WSLg.
 
+<img width="524" height="287" alt="Notepad Screenshot" src="https://github.com/user-attachments/assets/006d401f-e839-443e-aa8e-8a4385e20f82" />
+
 ## What is this?
 
 This project explores building GUI applications in Bend, a language designed for parallel computation. The app renders a Minecraft-style 7x9 pixel font, handles keyboard input (typing, backspace, enter, escape), and displays text in a window using SDL2 through WSLg.
